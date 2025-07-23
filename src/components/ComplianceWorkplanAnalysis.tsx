@@ -40,6 +40,12 @@ interface ProcessedData {
   goalData: { goal: string; activities: number; avgCompletion: number }[];
   statusData: { name: string; value: number; percentage: number; color: string }[];
   complianceMaturity: { element: string; score: number; activities: number; completion: number }[];
+  executiveSummary: {
+    narrative: string;
+    keyInsights: string[];
+    riskAreas: string[];
+    successes: string[];
+  };
   summary: {
     totalActivities: number;
     avgCompletion: number;
@@ -95,24 +101,24 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
     }
   };
 
-  // Status Legend Mapping
+  // Status Legend Mapping (Numeric)
   const statusCategories: Record<string, StatusCategory> = {
-    'Ongoing': {
+    '1': {
       name: 'Ongoing',
       color: '#6B7280', // Gray
       description: 'Activities that are ongoing without specific timeline completion'
     },
-    'On Track with timelines': {
+    '2': {
       name: 'On Track',
       color: '#3B82F6', // Blue
       description: 'Activities progressing as planned within timeline'
     },
-    'Complete': {
+    '3': {
       name: 'Complete',
       color: '#10B981', // Green
       description: 'Activities that have been completed'
     },
-    'Delayed/Off-Schedule': {
+    '4': {
       name: 'Delayed',
       color: '#F59E0B', // Yellow
       description: 'Activities that are behind schedule'
@@ -120,19 +126,23 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
   };
 
   // Helper function to normalize status values
-  const normalizeStatus = (status: string): string => {
-    if (!status || typeof status !== 'string') return 'Ongoing';
-    const cleanStatus = status.trim();
+  const normalizeStatus = (status: string | number): string => {
+    if (!status) return '1'; // Default to Ongoing
     
-    // Direct matches
-    if (statusCategories[cleanStatus]) return cleanStatus;
+    const statusStr = status.toString().trim();
     
-    // Fuzzy matching
-    if (cleanStatus.toLowerCase().includes('complete')) return 'Complete';
-    if (cleanStatus.toLowerCase().includes('track')) return 'On Track with timelines';
-    if (cleanStatus.toLowerCase().includes('delay') || cleanStatus.toLowerCase().includes('off')) return 'Delayed/Off-Schedule';
+    // Direct numeric matches
+    if (statusCategories[statusStr]) return statusStr;
     
-    return 'Ongoing'; // Default
+    // Handle string values and convert to numbers
+    if (typeof status === 'string') {
+      const cleanStatus = status.toLowerCase();
+      if (cleanStatus.includes('complete') || cleanStatus === '3') return '3';
+      if (cleanStatus.includes('track') || cleanStatus.includes('on track') || cleanStatus === '2') return '2';
+      if (cleanStatus.includes('delay') || cleanStatus.includes('off') || cleanStatus === '4') return '4';
+    }
+    
+    return '1'; // Default to Ongoing
   };
 
   const processActivitiesData = (activities: Activity[]): ProcessedData => {
@@ -239,10 +249,54 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
     })).filter(item => item.value > 0); // Only show categories that have activities
     
     // Individual status counts
-    const ongoingActivities = statusGroups['Ongoing'] || 0;
-    const onTrackActivities = statusGroups['On Track with timelines'] || 0;
-    const completeActivities = statusGroups['Complete'] || 0;
-    const delayedActivities = statusGroups['Delayed/Off-Schedule'] || 0;
+    const ongoingActivities = statusGroups['1'] || 0;
+    const onTrackActivities = statusGroups['2'] || 0;
+    const completeActivities = statusGroups['3'] || 0;
+    const delayedActivities = statusGroups['4'] || 0;
+    
+    // Generate Executive Summary for Board
+    const generateExecutiveSummary = () => {
+      const completionRate = Math.round((completeActivities / totalActivities) * 100);
+      const onTrackRate = Math.round((onTrackActivities / totalActivities) * 100);
+      const delayedRate = Math.round((delayedActivities / totalActivities) * 100);
+      const riskThreshold = 20; // 20% or more delayed is high risk
+      
+      // Risk assessment
+      const riskLevel = delayedRate >= riskThreshold ? 'HIGH' : delayedRate >= 10 ? 'MODERATE' : 'LOW';
+      
+      // Identify weak compliance areas
+      const weakElements = complianceMaturity.filter(e => e.score < 60);
+      const strongElements = complianceMaturity.filter(e => e.score >= 80);
+      
+      const narrative = `As of ${new Date().toLocaleDateString()}, the organization's FY 2025 Compliance & Ethics program encompasses ${totalActivities} planned activities across the seven fundamental compliance elements. Current execution shows ${completionRate}% of activities completed, with ${onTrackRate}% progressing on schedule. ${delayedRate > 0 ? `${delayedRate}% of activities are experiencing delays, indicating ${riskLevel.toLowerCase()} operational risk.` : 'No significant delays are currently impacting the program timeline.'} The compliance program demonstrates ${strongElements.length > weakElements.length ? 'strong overall maturity' : 'developing maturity'} with ${strongElements.length} elements showing advanced implementation and ${weakElements.length} requiring focused attention.`;
+      
+      const keyInsights = [
+        `Program execution is ${completionRate >= 75 ? 'exceeding' : completionRate >= 50 ? 'meeting' : 'below'} expectations with ${completionRate}% completion rate`,
+        `${onTrackActivities + completeActivities} of ${totalActivities} activities (${Math.round(((onTrackActivities + completeActivities) / totalActivities) * 100)}%) are performing as planned`,
+        `Compliance maturity varies significantly across elements, with scores ranging from ${Math.min(...complianceMaturity.map(e => e.score))}% to ${Math.max(...complianceMaturity.map(e => e.score))}%`
+      ];
+      
+      const riskAreas = [
+        ...(delayedRate >= riskThreshold ? [`${delayedRate}% of activities are delayed, creating program delivery risk`] : []),
+        ...(weakElements.length > 0 ? [weakElements.map(e => e.element).join(', ') + ' show insufficient maturity for regulatory readiness'] : []),
+        ...(avgCompletion < 50 ? ['Overall program velocity may jeopardize annual compliance objectives'] : [])
+      ];
+      
+      const successes = [
+        ...(completionRate >= 25 ? [`${completeActivities} activities successfully completed demonstrating program execution capability`] : []),
+        ...(strongElements.length > 0 ? [strongElements.map(e => e.element).join(', ') + ' demonstrate mature compliance processes'] : []),
+        ...(onTrackRate >= 30 ? [`${onTrackRate}% of activities maintain timeline adherence showing effective project management`] : [])
+      ];
+      
+      return {
+        narrative,
+        keyInsights: keyInsights.slice(0, 3),
+        riskAreas: riskAreas.length > 0 ? riskAreas.slice(0, 3) : ['No significant risks identified in current reporting period'],
+        successes: successes.length > 0 ? successes.slice(0, 3) : ['Program foundation established with structured approach to compliance management']
+      };
+    };
+    
+    const executiveSummary = generateExecutiveSummary();
     
     return {
       monthlyData,
@@ -251,6 +305,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       goalData,
       statusData,
       complianceMaturity,
+      executiveSummary,
       summary: {
         totalActivities,
         avgCompletion,
@@ -416,35 +471,85 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         </div>
       </div>
 
-      {/* Executive Summary */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Executive Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4">
+      {/* Board-Level Executive Summary */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800">📊 Executive Summary for Board Review</h2>
+        
+        {/* Executive Narrative */}
+        <div className="bg-blue-50 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-3 text-blue-800">Program Overview</h3>
+          <p className="text-gray-700 leading-relaxed">{data.executiveSummary.narrative}</p>
+        </div>
+        
+        {/* Key Metrics Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-blue-50 rounded-lg p-4 text-center">
             <p className="text-sm text-gray-600 mb-1">Total Activities</p>
             <p className="text-3xl font-bold text-blue-600">{data.summary.totalActivities}</p>
+            <p className="text-xs text-gray-500">Planned Initiatives</p>
           </div>
-          <div className="bg-green-50 rounded-lg p-4">
+          <div className="bg-green-50 rounded-lg p-4 text-center">
             <p className="text-sm text-gray-600 mb-1">Complete</p>
             <p className="text-3xl font-bold text-green-600">{data.summary.completeActivities}</p>
+            <p className="text-xs text-gray-500">{Math.round((data.summary.completeActivities/data.summary.totalActivities)*100)}% of Total</p>
           </div>
-          <div className="bg-blue-50 rounded-lg p-4">
+          <div className="bg-blue-50 rounded-lg p-4 text-center">
             <p className="text-sm text-gray-600 mb-1">On Track</p>
             <p className="text-3xl font-bold text-blue-600">{data.summary.onTrackActivities}</p>
+            <p className="text-xs text-gray-500">{Math.round((data.summary.onTrackActivities/data.summary.totalActivities)*100)}% of Total</p>
           </div>
-          <div className="bg-yellow-50 rounded-lg p-4">
+          <div className="bg-yellow-50 rounded-lg p-4 text-center">
             <p className="text-sm text-gray-600 mb-1">Delayed</p>
             <p className="text-3xl font-bold text-yellow-600">{data.summary.delayedActivities}</p>
+            <p className="text-xs text-gray-500">{Math.round((data.summary.delayedActivities/data.summary.totalActivities)*100)}% of Total</p>
           </div>
         </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Ongoing Activities</p>
-            <p className="text-2xl font-bold text-gray-600">{data.summary.ongoingActivities}</p>
+        
+        {/* Strategic Insights Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Key Insights */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <h4 className="font-semibold text-green-800 mb-3 flex items-center">
+              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>Key Insights
+            </h4>
+            <ul className="space-y-2 text-sm text-green-700">
+              {data.executiveSummary.keyInsights.map((insight, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-green-500 mr-2 mt-1">•</span>
+                  {insight}
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="bg-purple-50 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Average Completion</p>
-            <p className="text-2xl font-bold text-purple-600">{data.summary.avgCompletion}%</p>
+          
+          {/* Risk Areas */}
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <h4 className="font-semibold text-red-800 mb-3 flex items-center">
+              <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>Risk Areas
+            </h4>
+            <ul className="space-y-2 text-sm text-red-700">
+              {data.executiveSummary.riskAreas.map((risk, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-red-500 mr-2 mt-1">⚠</span>
+                  {risk}
+                </li>
+              ))}
+            </ul>
+          </div>
+          
+          {/* Successes */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
+              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>Notable Successes
+            </h4>
+            <ul className="space-y-2 text-sm text-blue-700">
+              {data.executiveSummary.successes.map((success, index) => (
+                <li key={index} className="flex items-start">
+                  <span className="text-blue-500 mr-2 mt-1">✓</span>
+                  {success}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </div>
@@ -492,12 +597,12 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
               ))}
             </div>
             <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-800 text-sm mb-1">📊 Status Color Legend</h4>
+              <h4 className="font-semibold text-blue-800 text-sm mb-1">🔢 Status Numeric Legend</h4>
               <div className="text-xs text-blue-700 space-y-1">
-                <div><span className="w-2 h-2 bg-gray-500 inline-block rounded-full mr-1"></span>Gray: Ongoing activities</div>
-                <div><span className="w-2 h-2 bg-blue-500 inline-block rounded-full mr-1"></span>Blue: On track with timelines</div>
-                <div><span className="w-2 h-2 bg-green-500 inline-block rounded-full mr-1"></span>Green: Complete</div>
-                <div><span className="w-2 h-2 bg-yellow-500 inline-block rounded-full mr-1"></span>Yellow: Delayed/Off-schedule</div>
+                <div><span className="w-2 h-2 bg-gray-500 inline-block rounded-full mr-1"></span><strong>1:</strong> Ongoing activities</div>
+                <div><span className="w-2 h-2 bg-blue-500 inline-block rounded-full mr-1"></span><strong>2:</strong> On track with timelines</div>
+                <div><span className="w-2 h-2 bg-green-500 inline-block rounded-full mr-1"></span><strong>3:</strong> Complete</div>
+                <div><span className="w-2 h-2 bg-yellow-500 inline-block rounded-full mr-1"></span><strong>4:</strong> Delayed/Off-schedule</div>
               </div>
             </div>
           </div>
