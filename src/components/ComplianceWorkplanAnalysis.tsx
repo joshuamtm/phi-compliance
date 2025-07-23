@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import * as XLSX from 'xlsx';
 
 interface Activity {
@@ -21,12 +21,19 @@ interface Activity {
   Q4: boolean;
 }
 
+interface ComplianceElement {
+  code: string;
+  name: string;
+  description: string;
+}
+
 interface ProcessedData {
   monthlyData: { month: string; activities: number }[];
   quarterlyData: { quarter: string; activities: number }[];
-  topicData: { topic: string; activities: number; avgCompletion: number }[];
+  topicData: { topic: string; activities: number; avgCompletion: number; element: ComplianceElement }[];
   goalData: { goal: string; activities: number; avgCompletion: number }[];
   statusData: { name: string; value: number; percentage: number }[];
+  complianceMaturity: { element: string; score: number; activities: number; completion: number }[];
   summary: {
     totalActivities: number;
     avgCompletion: number;
@@ -41,6 +48,45 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+
+  // Compliance Program Elements Framework
+  const complianceElements: Record<string, ComplianceElement> = {
+    'E1': {
+      code: 'E1',
+      name: 'Written Standards & Policies',
+      description: 'Written standards of conduct and policies and procedures'
+    },
+    'E2': {
+      code: 'E2', 
+      name: 'Governance & Oversight',
+      description: 'Designation of a Chief Compliance Officer and other appropriate bodies'
+    },
+    'E3': {
+      code: 'E3',
+      name: 'Education & Training', 
+      description: 'Effective education & training programs'
+    },
+    'E4': {
+      code: 'E4',
+      name: 'Audits & Evaluation',
+      description: 'Audits and evaluation techniques to monitor compliance'
+    },
+    'E5': {
+      code: 'E5',
+      name: 'Reporting & Background Checks',
+      description: 'Establishment of reporting processes, background checks and procedures for complaints'
+    },
+    'E6': {
+      code: 'E6',
+      name: 'Disciplinary Mechanisms',
+      description: 'Appropriate disciplinary mechanisms'
+    },
+    'E7': {
+      code: 'E7',
+      name: 'Response & Remediation',
+      description: 'Response, remediation and prevention'
+    }
+  };
 
   const processActivitiesData = (activities: Activity[]): ProcessedData => {
     // Monthly distribution
@@ -71,12 +117,39 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
     
     const topicData = Object.entries(topicGroups)
       .filter(([topic]) => topic.startsWith('E'))
-      .map(([topic, data]) => ({
-        topic,
-        activities: data.activities,
-        avgCompletion: Math.round((data.totalCompletion / data.activities) * 100)
-      }))
+      .map(([topic, data]) => {
+        const element = complianceElements[topic] || {
+          code: topic,
+          name: topic,
+          description: 'Unknown compliance element'
+        };
+        return {
+          topic,
+          activities: data.activities,
+          avgCompletion: Math.round((data.totalCompletion / data.activities) * 100),
+          element
+        };
+      })
       .sort((a, b) => b.activities - a.activities);
+
+    // Compliance Maturity Assessment
+    const complianceMaturity = Object.entries(complianceElements).map(([code, element]) => {
+      const elementActivities = activities.filter(a => a.Topic === code);
+      const totalCompletion = elementActivities.reduce((sum, a) => sum + a.Percent_Complete, 0);
+      const avgCompletion = elementActivities.length > 0 ? totalCompletion / elementActivities.length : 0;
+      
+      // Calculate maturity score (0-100) based on activity count and completion
+      const activityScore = Math.min((elementActivities.length / 5) * 50, 50); // Max 50 points for having activities
+      const completionScore = avgCompletion * 50; // Max 50 points for completion
+      const score = Math.round(activityScore + completionScore);
+      
+      return {
+        element: element.name,
+        score,
+        activities: elementActivities.length,
+        completion: Math.round(avgCompletion * 100)
+      };
+    }).sort((a, b) => b.score - a.score);
     
     // Group by organizational goal
     const goalGroups: Record<string, { activities: number; totalCompletion: number }> = {};
@@ -120,6 +193,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       topicData,
       goalData,
       statusData,
+      complianceMaturity,
       summary: {
         totalActivities,
         avgCompletion,
@@ -385,6 +459,60 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         </div>
       </div>
 
+      {/* Compliance Program Maturity Assessment */}
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Compliance Program Maturity Assessment</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <ResponsiveContainer width="100%" height={400}>
+            <RadarChart data={data.complianceMaturity}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="element" className="text-xs" />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} className="text-xs" />
+              <Radar
+                name="Maturity Score"
+                dataKey="score"
+                stroke="#8884d8"
+                fill="#8884d8"
+                fillOpacity={0.3}
+                strokeWidth={2}
+              />
+              <Tooltip 
+                formatter={(value: number, name: string) => [`${value}%`, name]}
+                labelFormatter={(label: string) => `Element: ${label}`}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+          <div className="flex flex-col justify-center">
+            <h3 className="text-lg font-medium mb-3">Maturity Breakdown</h3>
+            <div className="space-y-3">
+              {data.complianceMaturity.slice(0, 4).map((element, index) => (
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <div className="font-medium text-sm">{element.element}</div>
+                    <div className="text-xs text-gray-600">{element.activities} activities, {element.completion}% complete</div>
+                  </div>
+                  <div className="flex items-center">
+                    <div className={`w-12 h-2 rounded-full mr-2 ${
+                      element.score >= 80 ? 'bg-green-500' :
+                      element.score >= 60 ? 'bg-yellow-500' :
+                      element.score >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                    }`}></div>
+                    <span className="text-sm font-medium">{element.score}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <h4 className="font-semibold text-blue-800 mb-2">Maturity Scoring Methodology</h4>
+          <p className="text-sm text-blue-700">
+            Maturity scores are calculated based on activity coverage (0-50 points) and completion rate (0-50 points). 
+            Scores above 80% indicate mature processes, 60-79% developing, 40-59% basic, and below 40% need attention.
+          </p>
+        </div>
+      </div>
+
       {/* Timeline Analysis */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Timeline Distribution</h2>
@@ -423,19 +551,61 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* Topic Analysis */}
+      {/* Compliance Elements Analysis */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activities by Compliance Topic</h2>
-        <ResponsiveContainer width="100%" height={400}>
-          <BarChart data={data.topicData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="topic" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="activities" fill="#8884d8" name="Number of Activities" />
-            <Bar dataKey="avgCompletion" fill="#82ca9d" name="Avg Completion %" />
-          </BarChart>
-        </ResponsiveContainer>
+        <h2 className="text-2xl font-semibent mb-4 text-gray-800">7 Basic Compliance Program Elements</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={data.topicData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="topic" />
+              <YAxis />
+              <Tooltip 
+                formatter={(value: number, name: string) => [value, name]}
+                labelFormatter={(topic: string) => {
+                  const element = data.topicData.find(d => d.topic === topic)?.element;
+                  return element ? `${element.code}: ${element.name}` : topic;
+                }}
+              />
+              <Bar dataKey="activities" fill="#8884d8" name="Number of Activities" />
+              <Bar dataKey="avgCompletion" fill="#82ca9d" name="Avg Completion %" />
+            </BarChart>
+          </ResponsiveContainer>
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium mb-3">Compliance Elements Framework</h3>
+            {data.topicData.map((item, index) => (
+              <div key={index} className="p-4 border border-gray-200 rounded-lg">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-sm">{item.element.code}: {item.element.name}</h4>
+                    <p className="text-xs text-gray-600 mt-1">{item.element.description}</p>
+                  </div>
+                  <div className="text-right ml-4">
+                    <div className="text-sm font-medium">{item.activities} activities</div>
+                    <div className="text-xs text-gray-600">{item.avgCompletion}% complete</div>
+                  </div>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className={`h-2 rounded-full ${
+                      item.avgCompletion >= 80 ? 'bg-green-500' :
+                      item.avgCompletion >= 60 ? 'bg-yellow-500' :
+                      item.avgCompletion >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                    }`}
+                    style={{ width: `${item.avgCompletion}%` }}
+                  ></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="mt-6 p-4 bg-amber-50 rounded-lg">
+          <h4 className="font-semibold text-amber-800 mb-2">🎯 Compliance Framework Overview</h4>
+          <p className="text-sm text-amber-700">
+            These seven elements form the foundation of an effective compliance program as outlined in federal guidance. 
+            Each element should have adequate activities and show strong completion rates to demonstrate program maturity.
+          </p>
+        </div>
       </div>
 
       {/* Organizational Goals */}
@@ -452,36 +622,107 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* Insights and Recommendations */}
+      {/* Compliance-Specific Insights and Recommendations */}
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Key Insights & Recommendations</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Compliance Program Insights & Recommendations</h2>
         <div className="space-y-4">
+          {/* Program Balance Analysis */}
           <div className="border-l-4 border-blue-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">1. Timeline Management</h3>
+            <h3 className="font-semibold text-lg mb-2">📊 Program Balance Assessment</h3>
             <p className="text-gray-700">
-              Monitor quarterly distribution to ensure balanced resource allocation throughout the year.
+              {(() => {
+                const highestElement = data.complianceMaturity[0];
+                const lowestElement = data.complianceMaturity[data.complianceMaturity.length - 1];
+                const gap = highestElement.score - lowestElement.score;
+                
+                if (gap > 40) {
+                  return `Significant imbalance detected: "${highestElement.element}" (${highestElement.score}%) significantly outperforms "${lowestElement.element}" (${lowestElement.score}%). Consider redistributing focus to achieve balanced compliance program maturity.`;
+                } else if (gap > 20) {
+                  return `Moderate imbalance: "${lowestElement.element}" needs attention to match the performance of stronger elements like "${highestElement.element}".`;
+                } else {
+                  return `Well-balanced compliance program with consistent maturity across elements. Continue maintaining this balanced approach.`;
+                }
+              })()} 
             </p>
           </div>
           
-          <div className="border-l-4 border-green-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">2. Progress Tracking</h3>
+          {/* Critical Element Focus */}
+          <div className="border-l-4 border-red-500 pl-4">
+            <h3 className="font-semibold text-lg mb-2">🚨 Priority Areas Requiring Attention</h3>
             <p className="text-gray-700">
-              Current completion rate of {data.summary.avgCompletion}% provides baseline for performance monitoring.
+              {(() => {
+                const weakElements = data.complianceMaturity.filter(e => e.score < 60);
+                if (weakElements.length === 0) {
+                  return "All compliance elements show strong maturity (≥60%). Maintain current performance levels.";
+                } else {
+                  const elementNames = weakElements.map(e => e.element).join(', ');
+                  return `Critical attention needed for: ${elementNames}. These foundational elements require immediate strengthening to ensure program effectiveness.`;
+                }
+              })()} 
             </p>
           </div>
           
+          {/* Resource Allocation */}
           <div className="border-l-4 border-purple-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">3. Topic Focus</h3>
+            <h3 className="font-semibold text-lg mb-2">💰 Resource Allocation Strategy</h3>
             <p className="text-gray-700">
-              Topics with high activity counts may require additional resources or priority attention.
+              {(() => {
+                const totalActivities = data.summary.totalActivities;
+                const avgActivitiesPerElement = totalActivities / 7;
+                const overAllocated = data.topicData.filter(t => t.activities > avgActivitiesPerElement * 1.5);
+                const underAllocated = data.topicData.filter(t => t.activities < avgActivitiesPerElement * 0.5);
+                
+                if (overAllocated.length > 0 && underAllocated.length > 0) {
+                  return `Resource rebalancing opportunity: ${overAllocated.map(e => e.element.name).join(', ')} have disproportionate activity allocation, while ${underAllocated.map(e => e.element.name).join(', ')} may be under-resourced.`;
+                } else {
+                  return `Resource allocation appears balanced across compliance elements.`;
+                }
+              })()} 
             </p>
           </div>
           
-          <div className="border-l-4 border-orange-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">4. Strategic Alignment</h3>
+          {/* Timeline & Execution */}
+          <div className="border-l-4 border-green-500 pl-4">
+            <h3 className="font-semibold text-lg mb-2">⏱️ Execution Performance</h3>
             <p className="text-gray-700">
-              Strong alignment between organizational goals and compliance activities demonstrates effective planning.
+              Overall completion rate of {data.summary.avgCompletion}% {data.summary.avgCompletion >= 75 ? 'demonstrates strong' : data.summary.avgCompletion >= 50 ? 'shows moderate' : 'indicates concerning'} program execution. 
+              {data.summary.avgCompletion < 50 && 'Consider reviewing project management processes and resource adequacy.'}
+              {data.summary.avgCompletion >= 50 && data.summary.avgCompletion < 75 && 'Focus on removing execution barriers and improving project velocity.'}
+              {data.summary.avgCompletion >= 75 && 'Maintain current execution practices while ensuring quality is not compromised for speed.'}
             </p>
+          </div>
+          
+          {/* Regulatory Readiness */}
+          <div className="border-l-4 border-amber-500 pl-4">
+            <h3 className="font-semibold text-lg mb-2">🛡️ Regulatory Readiness</h3>
+            <p className="text-gray-700">
+              {(() => {
+                const criticalElements = ['Written Standards & Policies', 'Governance & Oversight', 'Audits & Evaluation'];
+                const criticalScores = data.complianceMaturity.filter(e => criticalElements.includes(e.element));
+                const avgCriticalScore = criticalScores.reduce((sum, e) => sum + e.score, 0) / criticalScores.length;
+                
+                if (avgCriticalScore >= 80) {
+                  return "Strong regulatory readiness with robust foundational elements. Continue maintaining documentation and oversight processes.";
+                } else if (avgCriticalScore >= 60) {
+                  return "Moderate regulatory readiness. Strengthen documentation, governance oversight, and audit processes to improve examination preparedness.";
+                } else {
+                  return "Regulatory readiness requires immediate attention. Critical compliance infrastructure elements need strengthening before potential examinations.";
+                }
+              })()} 
+            </p>
+          </div>
+          
+          {/* Next Steps */}
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h3 className="font-semibold text-lg mb-2">🎯 Recommended Next Steps</h3>
+            <div className="text-gray-700">
+              <ol className="list-decimal list-inside space-y-1 text-sm">
+                <li><strong>Immediate (30 days):</strong> Address elements scoring below 40% maturity</li>
+                <li><strong>Short-term (90 days):</strong> Rebalance resource allocation across underperforming elements</li>
+                <li><strong>Medium-term (6 months):</strong> Implement systematic monitoring of all seven compliance elements</li>
+                <li><strong>Long-term (annual):</strong> Conduct comprehensive program assessment and strategic planning</li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>
