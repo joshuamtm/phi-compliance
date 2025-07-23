@@ -358,7 +358,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {data.statusData.map((entry, index) => (
+                {data.statusData.map((_, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>

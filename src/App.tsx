@@ -1,4 +1,3 @@
-import React from 'react';
 import ComplianceWorkplanAnalysis from './components/ComplianceWorkplanAnalysis';
 import './App.css';
 

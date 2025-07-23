@@ -1,11 +1,11 @@
-interface PHIPattern {
+export interface PHIPattern {
   name: string;
   pattern: RegExp;
   confidence: 'high' | 'medium' | 'low';
   category: string;
 }
 
-interface PHIMatch {
+export interface PHIMatch {
   type: string;
   value: string;
   startIndex: number;

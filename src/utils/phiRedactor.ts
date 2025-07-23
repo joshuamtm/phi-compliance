@@ -48,7 +48,6 @@ export class PHIRedactor {
     }
 
     let redactedText = text;
-    let offset = 0;
 
     // Process matches in reverse order to maintain indices
     matches.reverse().forEach(match => {
