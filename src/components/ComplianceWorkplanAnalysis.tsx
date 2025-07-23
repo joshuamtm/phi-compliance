@@ -27,19 +27,26 @@ interface ComplianceElement {
   description: string;
 }
 
+interface StatusCategory {
+  name: string;
+  color: string;
+  description: string;
+}
+
 interface ProcessedData {
   monthlyData: { month: string; activities: number }[];
   quarterlyData: { quarter: string; activities: number }[];
   topicData: { topic: string; activities: number; avgCompletion: number; element: ComplianceElement }[];
   goalData: { goal: string; activities: number; avgCompletion: number }[];
-  statusData: { name: string; value: number; percentage: number }[];
+  statusData: { name: string; value: number; percentage: number; color: string }[];
   complianceMaturity: { element: string; score: number; activities: number; completion: number }[];
   summary: {
     totalActivities: number;
     avgCompletion: number;
-    completedActivities: number;
-    inProgressActivities: number;
-    notStartedActivities: number;
+    ongoingActivities: number;
+    onTrackActivities: number;
+    completeActivities: number;
+    delayedActivities: number;
   };
 }
 
@@ -86,6 +93,46 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       name: 'Response & Remediation',
       description: 'Response, remediation and prevention'
     }
+  };
+
+  // Status Legend Mapping
+  const statusCategories: Record<string, StatusCategory> = {
+    'Ongoing': {
+      name: 'Ongoing',
+      color: '#6B7280', // Gray
+      description: 'Activities that are ongoing without specific timeline completion'
+    },
+    'On Track with timelines': {
+      name: 'On Track',
+      color: '#3B82F6', // Blue
+      description: 'Activities progressing as planned within timeline'
+    },
+    'Complete': {
+      name: 'Complete',
+      color: '#10B981', // Green
+      description: 'Activities that have been completed'
+    },
+    'Delayed/Off-Schedule': {
+      name: 'Delayed',
+      color: '#F59E0B', // Yellow
+      description: 'Activities that are behind schedule'
+    }
+  };
+
+  // Helper function to normalize status values
+  const normalizeStatus = (status: string): string => {
+    if (!status || typeof status !== 'string') return 'Ongoing';
+    const cleanStatus = status.trim();
+    
+    // Direct matches
+    if (statusCategories[cleanStatus]) return cleanStatus;
+    
+    // Fuzzy matching
+    if (cleanStatus.toLowerCase().includes('complete')) return 'Complete';
+    if (cleanStatus.toLowerCase().includes('track')) return 'On Track with timelines';
+    if (cleanStatus.toLowerCase().includes('delay') || cleanStatus.toLowerCase().includes('off')) return 'Delayed/Off-Schedule';
+    
+    return 'Ongoing'; // Default
   };
 
   const processActivitiesData = (activities: Activity[]): ProcessedData => {
@@ -176,16 +223,26 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
     // Overall statistics
     const totalActivities = activities.length;
     const avgCompletion = Math.round((activities.reduce((sum, a) => sum + a.Percent_Complete, 0) / totalActivities) * 100);
-    const completedActivities = activities.filter(a => a.Percent_Complete >= 1).length;
-    const inProgressActivities = activities.filter(a => a.Percent_Complete > 0 && a.Percent_Complete < 1).length;
-    const notStartedActivities = activities.filter(a => a.Percent_Complete === 0).length;
     
-    // Status distribution
-    const statusData = [
-      { name: 'Completed', value: completedActivities, percentage: Math.round((completedActivities / totalActivities) * 100) },
-      { name: 'In Progress', value: inProgressActivities, percentage: Math.round((inProgressActivities / totalActivities) * 100) },
-      { name: 'Not Started', value: notStartedActivities, percentage: Math.round((notStartedActivities / totalActivities) * 100) }
-    ];
+    // Status distribution based on color legend
+    const statusGroups: Record<string, number> = {};
+    activities.forEach(activity => {
+      const normalizedStatus = normalizeStatus(activity.Status);
+      statusGroups[normalizedStatus] = (statusGroups[normalizedStatus] || 0) + 1;
+    });
+    
+    const statusData = Object.entries(statusCategories).map(([key, category]) => ({
+      name: category.name,
+      value: statusGroups[key] || 0,
+      percentage: Math.round(((statusGroups[key] || 0) / totalActivities) * 100),
+      color: category.color
+    })).filter(item => item.value > 0); // Only show categories that have activities
+    
+    // Individual status counts
+    const ongoingActivities = statusGroups['Ongoing'] || 0;
+    const onTrackActivities = statusGroups['On Track with timelines'] || 0;
+    const completeActivities = statusGroups['Complete'] || 0;
+    const delayedActivities = statusGroups['Delayed/Off-Schedule'] || 0;
     
     return {
       monthlyData,
@@ -197,9 +254,10 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       summary: {
         totalActivities,
         avgCompletion,
-        completedActivities,
-        inProgressActivities,
-        notStartedActivities
+        ongoingActivities,
+        onTrackActivities,
+        completeActivities,
+        delayedActivities
       }
     };
   };
@@ -240,44 +298,6 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
               Percent_Complete: typeof row[16] === 'number' ? row[16] : 0,
               Status: row[17] || '',
               Sheet: 'Workplan',
-              Q1: false,
-              Q2: false,
-              Q3: false,
-              Q4: false
-            };
-            
-            activity.Q1 = activity.Timeline.Jan || activity.Timeline.Feb || activity.Timeline.Mar;
-            activity.Q2 = activity.Timeline.Apr || activity.Timeline.May || activity.Timeline.Jun;
-            activity.Q3 = activity.Timeline.Jul || activity.Timeline.Aug || activity.Timeline.Sep;
-            activity.Q4 = activity.Timeline.Oct || activity.Timeline.Nov || activity.Timeline.Dec;
-            
-            allActivities.push(activity);
-          }
-        }
-      }
-      
-      // Process By Department sheet
-      const deptSheet = workbook.Sheets['WP By Department'];
-      if (deptSheet) {
-        const deptData = XLSX.utils.sheet_to_json(deptSheet, { header: 1 }) as any[][];
-        
-        for (let i = 3; i < deptData.length; i++) {
-          const row = deptData[i];
-          if (row[1] && row[1].toString().trim() !== '') {
-            const activity: Activity = {
-              Topic: row[0] || '',
-              Activity: row[1],
-              Org_Goal: row[2] || '',
-              Coordinating_Partner: row[3] || '',
-              Timeline: {
-                Jan: row[4] === 'x', Feb: row[5] === 'x', Mar: row[6] === 'x',
-                Apr: row[7] === 'x', May: row[8] === 'x', Jun: row[9] === 'x',
-                Jul: row[10] === 'x', Aug: row[11] === 'x', Sep: row[12] === 'x',
-                Oct: row[13] === 'x', Nov: row[14] === 'x', Dec: row[15] === 'x'
-              },
-              Percent_Complete: typeof row[16] === 'number' ? row[16] : 0,
-              Status: row[17] || '',
-              Sheet: 'By Department',
               Q1: false,
               Q2: false,
               Q3: false,
@@ -365,7 +385,6 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
     );
   }
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-8">
@@ -400,18 +419,32 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       {/* Executive Summary */}
       <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Executive Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-blue-50 rounded-lg p-4">
             <p className="text-sm text-gray-600 mb-1">Total Activities</p>
             <p className="text-3xl font-bold text-blue-600">{data.summary.totalActivities}</p>
           </div>
           <div className="bg-green-50 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Average Completion</p>
-            <p className="text-3xl font-bold text-green-600">{data.summary.avgCompletion}%</p>
+            <p className="text-sm text-gray-600 mb-1">Complete</p>
+            <p className="text-3xl font-bold text-green-600">{data.summary.completeActivities}</p>
+          </div>
+          <div className="bg-blue-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">On Track</p>
+            <p className="text-3xl font-bold text-blue-600">{data.summary.onTrackActivities}</p>
+          </div>
+          <div className="bg-yellow-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">Delayed</p>
+            <p className="text-3xl font-bold text-yellow-600">{data.summary.delayedActivities}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <p className="text-sm text-gray-600 mb-1">Ongoing Activities</p>
+            <p className="text-2xl font-bold text-gray-600">{data.summary.ongoingActivities}</p>
           </div>
           <div className="bg-purple-50 rounded-lg p-4">
-            <p className="text-sm text-gray-600 mb-1">Activities Completed</p>
-            <p className="text-3xl font-bold text-purple-600">{data.summary.completedActivities}</p>
+            <p className="text-sm text-gray-600 mb-1">Average Completion</p>
+            <p className="text-2xl font-bold text-purple-600">{data.summary.avgCompletion}%</p>
           </div>
         </div>
       </div>
@@ -432,29 +465,41 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
                 fill="#8884d8"
                 dataKey="value"
               >
-                {data.statusData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                {data.statusData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex flex-col justify-center">
-            <h3 className="text-lg font-medium mb-3">Key Insights</h3>
-            <ul className="space-y-2 text-gray-700">
-              <li className="flex items-center">
-                <span className="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                {data.statusData[0].value} activities completed ({data.statusData[0].percentage}%)
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                {data.statusData[1].value} activities in progress ({data.statusData[1].percentage}%)
-              </li>
-              <li className="flex items-center">
-                <span className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
-                {data.statusData[2].value} activities not yet started ({data.statusData[2].percentage}%)
-              </li>
-            </ul>
+            <h3 className="text-lg font-medium mb-3">Status Legend</h3>
+            <div className="space-y-3">
+              {data.statusData.map((status, index) => (
+                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                  <div className="flex items-center">
+                    <span 
+                      className="w-4 h-4 rounded-full mr-3"
+                      style={{ backgroundColor: status.color }}
+                    ></span>
+                    <span className="font-medium text-sm">{status.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold">{status.value} activities</div>
+                    <div className="text-xs text-gray-600">{status.percentage}%</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <h4 className="font-semibold text-blue-800 text-sm mb-1">📊 Status Color Legend</h4>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div><span className="w-2 h-2 bg-gray-500 inline-block rounded-full mr-1"></span>Gray: Ongoing activities</div>
+                <div><span className="w-2 h-2 bg-blue-500 inline-block rounded-full mr-1"></span>Blue: On track with timelines</div>
+                <div><span className="w-2 h-2 bg-green-500 inline-block rounded-full mr-1"></span>Green: Complete</div>
+                <div><span className="w-2 h-2 bg-yellow-500 inline-block rounded-full mr-1"></span>Yellow: Delayed/Off-schedule</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
