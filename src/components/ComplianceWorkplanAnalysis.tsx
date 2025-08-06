@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 import * as XLSX from 'xlsx';
+import { GaugeDashboard } from './GaugeComponents';
 
 interface Activity {
   Topic: string;
@@ -61,6 +62,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
 
   // Compliance Program Elements Framework
   const complianceElements: Record<string, ComplianceElement> = {
@@ -458,21 +460,47 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
             </p>
           )}
         </div>
-        <div>
-          <label className="block">
-            <span className="sr-only">Update file</span>
+        <div className="flex items-center space-x-4">
+          {/* Presentation Mode Toggle */}
+          <div className="flex items-center">
             <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleFileUpload}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              type="checkbox"
+              id="presentationMode"
+              checked={isPresentationMode}
+              onChange={(e) => setIsPresentationMode(e.target.checked)}
+              className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
-          </label>
+            <label htmlFor="presentationMode" className="text-sm text-gray-700">
+              Presentation Mode
+            </label>
+          </div>
+          
+          {/* File Upload */}
+          <div>
+            <label className="block">
+              <span className="sr-only">Update file</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleFileUpload}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+            </label>
+          </div>
         </div>
       </div>
 
+      {/* Gauge Dashboard Section */}
+      <GaugeDashboard
+        overallCompletion={data.summary.avgCompletion}
+        complianceMaturity={data.complianceMaturity}
+        summary={data.summary}
+        complianceElements={complianceElements}
+        isPresentationMode={isPresentationMode}
+      />
+
       {/* Board-Level Executive Summary */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">📊 Executive Summary for Board Review</h2>
         
         {/* Executive Narrative */}
@@ -555,7 +583,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Status Distribution */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Status Distribution</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ResponsiveContainer width="100%" height={300}>
@@ -610,7 +638,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Compliance Program Maturity Assessment */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Compliance Program Maturity Assessment</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <ResponsiveContainer width="100%" height={400}>
@@ -664,7 +692,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Timeline Analysis */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Timeline Distribution</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data.monthlyData}>
@@ -688,7 +716,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Quarterly Distribution */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Quarterly Activity Distribution</h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data.quarterlyData}>
@@ -702,7 +730,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Compliance Elements Analysis */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibent mb-4 text-gray-800">7 Basic Compliance Program Elements</h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <ResponsiveContainer width="100%" height={400}>
@@ -759,7 +787,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Organizational Goals */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Alignment with Organizational Goals</h2>
         <ResponsiveContainer width="100%" height={350}>
           <BarChart data={data.goalData}>
@@ -773,7 +801,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Compliance-Specific Insights and Recommendations */}
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className={`bg-white rounded-lg shadow-lg p-6 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Compliance Program Insights & Recommendations</h2>
         <div className="space-y-4">
           {/* Program Balance Analysis */}
