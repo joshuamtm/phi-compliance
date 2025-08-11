@@ -62,7 +62,10 @@ export const OverallCompletionGauge: React.FC<OverallCompletionGaugeProps> = ({
       <div className="text-center mt-2">
         <h3 className="text-lg font-semibold text-gray-800">{title}</h3>
         <p className="text-sm text-gray-600">
-          Current status: {value >= 70 ? 'On Track' : value >= 40 ? 'Needs Attention' : 'Behind Schedule'}
+          Activities progressing or complete: {value}%
+        </p>
+        <p className="text-xs text-gray-500 mt-1">
+          (Ongoing + On Track + Complete)
         </p>
       </div>
     </div>
@@ -224,17 +227,26 @@ interface GaugeDashboardProps {
 }
 
 export const GaugeDashboard: React.FC<GaugeDashboardProps> = ({
-  overallCompletion,
+  overallCompletion: _overallCompletion,
   complianceMaturity,
   summary,
   complianceElements,
   isPresentationMode = false
 }) => {
+  // Calculate percentages for each status
+  const ongoingPercentage = Math.round((summary.ongoingActivities / summary.totalActivities) * 100);
+  const onTrackPercentage = Math.round((summary.onTrackActivities / summary.totalActivities) * 100);
+  const completePercentage = Math.round((summary.completeActivities / summary.totalActivities) * 100);
+  const delayedPercentage = Math.round((summary.delayedActivities / summary.totalActivities) * 100);
+  
+  // Calculate sum of ongoing, on track, and complete percentages for the main gauge
+  const progressPercentage = ongoingPercentage + onTrackPercentage + completePercentage;
+  
   // Map status data to our gauge format
   const statusGauges = [
     {
       title: 'Ongoing',
-      value: Math.round((summary.ongoingActivities / summary.totalActivities) * 100),
+      value: ongoingPercentage,
       total: summary.ongoingActivities,
       color: '#6B7280',
       isOngoing: true,
@@ -242,21 +254,21 @@ export const GaugeDashboard: React.FC<GaugeDashboardProps> = ({
     },
     {
       title: 'On Track',
-      value: Math.round((summary.onTrackActivities / summary.totalActivities) * 100),
+      value: onTrackPercentage,
       total: summary.onTrackActivities,
       color: '#3B82F6',
       description: 'Progressing as planned'
     },
     {
       title: 'Complete',
-      value: Math.round((summary.completeActivities / summary.totalActivities) * 100),
+      value: completePercentage,
       total: summary.completeActivities,
       color: '#10B981',
       description: 'Successfully finished'
     },
     {
       title: 'Delayed',
-      value: Math.round((summary.delayedActivities / summary.totalActivities) * 100),
+      value: delayedPercentage,
       total: summary.delayedActivities,
       color: '#F59E0B',
       description: 'Behind schedule'
@@ -280,8 +292,8 @@ export const GaugeDashboard: React.FC<GaugeDashboardProps> = ({
       {/* Main Completion Gauge */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 text-center shadow-lg">
         <OverallCompletionGauge 
-          value={overallCompletion} 
-          title="FY 2025 Program Completion Status"
+          value={progressPercentage} 
+          title="FY 2025 Program Progress Status"
         />
       </div>
 
