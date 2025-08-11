@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
+import { BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 import { GaugeDashboard } from './GaugeComponents';
 
@@ -63,6 +63,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [isMaturityExpanded, setIsMaturityExpanded] = useState(false);
 
   // Compliance Program Elements Framework
   const complianceElements: Record<string, ComplianceElement> = {
@@ -533,163 +534,37 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
           </div>
         </div>
         
-        {/* Strategic Insights Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Key Insights */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <h4 className="font-semibold text-green-800 mb-3 flex items-center">
-              <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>Key Insights
-            </h4>
-            <ul className="space-y-2 text-sm text-green-700">
-              {data.executiveSummary.keyInsights.map((insight, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="text-green-500 mr-2 mt-1">•</span>
-                  {insight}
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Risk Areas */}
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <h4 className="font-semibold text-red-800 mb-3 flex items-center">
-              <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>Risk Areas
-            </h4>
-            <ul className="space-y-2 text-sm text-red-700">
-              {data.executiveSummary.riskAreas.map((risk, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="text-red-500 mr-2 mt-1">⚠</span>
-                  {risk}
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          {/* Successes */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-800 mb-3 flex items-center">
-              <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>Notable Successes
-            </h4>
-            <ul className="space-y-2 text-sm text-blue-700">
-              {data.executiveSummary.successes.map((success, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="text-blue-500 mr-2 mt-1">✓</span>
-                  {success}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
       </div>
 
-      {/* Status Distribution */}
+      {/* Status Distribution - Bar Chart */}
       <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Status Distribution</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={data.statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({name, percentage}) => `${name}: ${percentage}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {data.statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="flex flex-col justify-center">
-            <h3 className="text-lg font-medium mb-3">Status Legend</h3>
-            <div className="space-y-3">
-              {data.statusData.map((status, index) => (
-                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                  <div className="flex items-center">
-                    <span 
-                      className="w-4 h-4 rounded-full mr-3"
-                      style={{ backgroundColor: status.color }}
-                    ></span>
-                    <span className="font-medium text-sm">{status.name}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold">{status.value} activities</div>
-                    <div className="text-xs text-gray-600">{status.percentage}%</div>
-                  </div>
-                </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={data.statusData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="name" />
+            <YAxis />
+            <Tooltip formatter={(value: number) => `${value} activities`} />
+            <Bar dataKey="value" name="Activities">
+              {data.statusData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="mt-4 grid grid-cols-4 gap-4">
+          {data.statusData.map((status, index) => (
+            <div key={index} className="flex items-center">
+              <span 
+                className="w-3 h-3 rounded-full mr-2"
+                style={{ backgroundColor: status.color }}
+              ></span>
+              <span className="text-sm text-gray-700">{status.name}: {status.value} ({status.percentage}%)</span>
             </div>
-            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-              <h4 className="font-semibold text-blue-800 text-sm mb-1">🔢 Status Numeric Legend</h4>
-              <div className="text-xs text-blue-700 space-y-1">
-                <div><span className="w-2 h-2 bg-gray-500 inline-block rounded-full mr-1"></span><strong>1:</strong> Ongoing activities</div>
-                <div><span className="w-2 h-2 bg-blue-500 inline-block rounded-full mr-1"></span><strong>2:</strong> On track with timelines</div>
-                <div><span className="w-2 h-2 bg-green-500 inline-block rounded-full mr-1"></span><strong>3:</strong> Complete</div>
-                <div><span className="w-2 h-2 bg-yellow-500 inline-block rounded-full mr-1"></span><strong>4:</strong> Delayed/Off-schedule</div>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* Compliance Program Maturity Assessment */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Compliance Program Maturity Assessment</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ResponsiveContainer width="100%" height={400}>
-            <RadarChart data={data.complianceMaturity}>
-              <PolarGrid />
-              <PolarAngleAxis dataKey="element" className="text-xs" />
-              <PolarRadiusAxis angle={90} domain={[0, 100]} className="text-xs" />
-              <Radar
-                name="Maturity Score"
-                dataKey="score"
-                stroke="#8884d8"
-                fill="#8884d8"
-                fillOpacity={0.3}
-                strokeWidth={2}
-              />
-              <Tooltip 
-                formatter={(value: number, name: string) => [`${value}%`, name]}
-                labelFormatter={(label: string) => `Element: ${label}`}
-              />
-            </RadarChart>
-          </ResponsiveContainer>
-          <div className="flex flex-col justify-center">
-            <h3 className="text-lg font-medium mb-3">Maturity Breakdown</h3>
-            <div className="space-y-3">
-              {data.complianceMaturity.slice(0, 4).map((element, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div>
-                    <div className="font-medium text-sm">{element.element}</div>
-                    <div className="text-xs text-gray-600">{element.activities} activities, {element.completion}% complete</div>
-                  </div>
-                  <div className="flex items-center">
-                    <div className={`w-12 h-2 rounded-full mr-2 ${
-                      element.score >= 80 ? 'bg-green-500' :
-                      element.score >= 60 ? 'bg-yellow-500' :
-                      element.score >= 40 ? 'bg-orange-500' : 'bg-red-500'
-                    }`}></div>
-                    <span className="text-sm font-medium">{element.score}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h4 className="font-semibold text-blue-800 mb-2">Maturity Scoring Methodology</h4>
-          <p className="text-sm text-blue-700">
-            Maturity scores are calculated based on activity coverage (0-50 points) and completion rate (0-50 points). 
-            Scores above 80% indicate mature processes, 60-79% developing, 40-59% basic, and below 40% need attention.
-          </p>
-        </div>
-      </div>
 
       {/* Timeline Analysis */}
       <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
@@ -715,194 +590,40 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         </p>
       </div>
 
-      {/* Quarterly Distribution */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Quarterly Activity Distribution</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data.quarterlyData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="quarter" />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="activities" fill="#00C49F" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
 
-      {/* Compliance Elements Analysis */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
-        <h2 className="text-2xl font-semibent mb-4 text-gray-800">7 Basic Compliance Program Elements</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={data.topicData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="topic" />
-              <YAxis />
-              <Tooltip 
-                formatter={(value: number, name: string) => [value, name]}
-                labelFormatter={(topic: string) => {
-                  const element = data.topicData.find(d => d.topic === topic)?.element;
-                  return element ? `${element.code}: ${element.name}` : topic;
-                }}
-              />
-              <Bar dataKey="activities" fill="#8884d8" name="Number of Activities" />
-              <Bar dataKey="avgCompletion" fill="#82ca9d" name="Avg Completion %" />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium mb-3">Compliance Elements Framework</h3>
-            {data.topicData.map((item, index) => (
-              <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex-1">
-                    <h4 className="font-semibold text-sm">{item.element.code}: {item.element.name}</h4>
-                    <p className="text-xs text-gray-600 mt-1">{item.element.description}</p>
-                  </div>
-                  <div className="text-right ml-4">
-                    <div className="text-sm font-medium">{item.activities} activities</div>
-                    <div className="text-xs text-gray-600">{item.avgCompletion}% complete</div>
-                  </div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full ${
-                      item.avgCompletion >= 80 ? 'bg-green-500' :
-                      item.avgCompletion >= 60 ? 'bg-yellow-500' :
-                      item.avgCompletion >= 40 ? 'bg-orange-500' : 'bg-red-500'
-                    }`}
-                    style={{ width: `${item.avgCompletion}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="mt-6 p-4 bg-amber-50 rounded-lg">
-          <h4 className="font-semibold text-amber-800 mb-2">🎯 Compliance Framework Overview</h4>
-          <p className="text-sm text-amber-700">
-            These seven elements form the foundation of an effective compliance program as outlined in federal guidance. 
-            Each element should have adequate activities and show strong completion rates to demonstrate program maturity.
-          </p>
-        </div>
-      </div>
 
-      {/* Organizational Goals */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Alignment with Organizational Goals</h2>
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={data.goalData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="goal" angle={-45} textAnchor="end" height={100} />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="activities" fill="#FFBB28" name="Number of Activities" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
 
-      {/* Compliance-Specific Insights and Recommendations */}
+      {/* Compliance Program Maturity by Element - Expandable */}
       <div className={`bg-white rounded-lg shadow-lg p-6 ${isPresentationMode ? 'hidden' : ''}`}>
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Compliance Program Insights & Recommendations</h2>
-        <div className="space-y-4">
-          {/* Program Balance Analysis */}
-          <div className="border-l-4 border-blue-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">📊 Program Balance Assessment</h3>
-            <p className="text-gray-700">
-              {(() => {
-                const highestElement = data.complianceMaturity[0];
-                const lowestElement = data.complianceMaturity[data.complianceMaturity.length - 1];
-                const gap = highestElement.score - lowestElement.score;
-                
-                if (gap > 40) {
-                  return `Significant imbalance detected: "${highestElement.element}" (${highestElement.score}%) significantly outperforms "${lowestElement.element}" (${lowestElement.score}%). Consider redistributing focus to achieve balanced compliance program maturity.`;
-                } else if (gap > 20) {
-                  return `Moderate imbalance: "${lowestElement.element}" needs attention to match the performance of stronger elements like "${highestElement.element}".`;
-                } else {
-                  return `Well-balanced compliance program with consistent maturity across elements. Continue maintaining this balanced approach.`;
-                }
-              })()} 
-            </p>
-          </div>
-          
-          {/* Critical Element Focus */}
-          <div className="border-l-4 border-red-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">🚨 Priority Areas Requiring Attention</h3>
-            <p className="text-gray-700">
-              {(() => {
-                const weakElements = data.complianceMaturity.filter(e => e.score < 60);
-                if (weakElements.length === 0) {
-                  return "All compliance elements show strong maturity (≥60%). Maintain current performance levels.";
-                } else {
-                  const elementNames = weakElements.map(e => e.element).join(', ');
-                  return `Critical attention needed for: ${elementNames}. These foundational elements require immediate strengthening to ensure program effectiveness.`;
-                }
-              })()} 
-            </p>
-          </div>
-          
-          {/* Resource Allocation */}
-          <div className="border-l-4 border-purple-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">💰 Resource Allocation Strategy</h3>
-            <p className="text-gray-700">
-              {(() => {
-                const totalActivities = data.summary.totalActivities;
-                const avgActivitiesPerElement = totalActivities / 7;
-                const overAllocated = data.topicData.filter(t => t.activities > avgActivitiesPerElement * 1.5);
-                const underAllocated = data.topicData.filter(t => t.activities < avgActivitiesPerElement * 0.5);
-                
-                if (overAllocated.length > 0 && underAllocated.length > 0) {
-                  return `Resource rebalancing opportunity: ${overAllocated.map(e => e.element.name).join(', ')} have disproportionate activity allocation, while ${underAllocated.map(e => e.element.name).join(', ')} may be under-resourced.`;
-                } else {
-                  return `Resource allocation appears balanced across compliance elements.`;
-                }
-              })()} 
-            </p>
-          </div>
-          
-          {/* Timeline & Execution */}
-          <div className="border-l-4 border-green-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">⏱️ Execution Performance</h3>
-            <p className="text-gray-700">
-              Overall completion rate of {data.summary.avgCompletion}% {data.summary.avgCompletion >= 75 ? 'demonstrates strong' : data.summary.avgCompletion >= 50 ? 'shows moderate' : 'indicates concerning'} program execution. 
-              {data.summary.avgCompletion < 50 && 'Consider reviewing project management processes and resource adequacy.'}
-              {data.summary.avgCompletion >= 50 && data.summary.avgCompletion < 75 && 'Focus on removing execution barriers and improving project velocity.'}
-              {data.summary.avgCompletion >= 75 && 'Maintain current execution practices while ensuring quality is not compromised for speed.'}
-            </p>
-          </div>
-          
-          {/* Regulatory Readiness */}
-          <div className="border-l-4 border-amber-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">🛡️ Regulatory Readiness</h3>
-            <p className="text-gray-700">
-              {(() => {
-                const criticalElements = ['Written Standards & Policies', 'Governance & Oversight', 'Audits & Evaluation'];
-                const criticalScores = data.complianceMaturity.filter(e => criticalElements.includes(e.element));
-                const avgCriticalScore = criticalScores.reduce((sum, e) => sum + e.score, 0) / criticalScores.length;
-                
-                if (avgCriticalScore >= 80) {
-                  return "Strong regulatory readiness with robust foundational elements. Continue maintaining documentation and oversight processes.";
-                } else if (avgCriticalScore >= 60) {
-                  return "Moderate regulatory readiness. Strengthen documentation, governance oversight, and audit processes to improve examination preparedness.";
-                } else {
-                  return "Regulatory readiness requires immediate attention. Critical compliance infrastructure elements need strengthening before potential examinations.";
-                }
-              })()} 
-            </p>
-          </div>
-          
-          {/* Next Steps */}
-          <div className="border-l-4 border-indigo-500 pl-4">
-            <h3 className="font-semibold text-lg mb-2">🎯 Recommended Next Steps</h3>
-            <div className="text-gray-700">
-              <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li><strong>Immediate (30 days):</strong> Address elements scoring below 40% maturity</li>
-                <li><strong>Short-term (90 days):</strong> Rebalance resource allocation across underperforming elements</li>
-                <li><strong>Medium-term (6 months):</strong> Implement systematic monitoring of all seven compliance elements</li>
-                <li><strong>Long-term (annual):</strong> Conduct comprehensive program assessment and strategic planning</li>
-              </ol>
-            </div>
-          </div>
+        <div 
+          className="flex justify-between items-center cursor-pointer"
+          onClick={() => setIsMaturityExpanded(!isMaturityExpanded)}
+        >
+          <h2 className="text-2xl font-semibold text-gray-800">Compliance Program Maturity by Element</h2>
+          <button className="text-gray-600 hover:text-gray-800 transition-colors">
+            {isMaturityExpanded ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
         </div>
+        
+        {isMaturityExpanded && (
+          <div className="mt-6">
+            <GaugeDashboard
+              overallCompletion={data.summary.avgCompletion}
+              complianceMaturity={data.complianceMaturity}
+              summary={data.summary}
+              complianceElements={complianceElements}
+              isPresentationMode={false}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
