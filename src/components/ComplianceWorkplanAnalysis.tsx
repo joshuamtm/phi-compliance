@@ -62,7 +62,6 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
-  const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [isMaturityExpanded, setIsMaturityExpanded] = useState(false);
 
   // Compliance Program Elements Framework
@@ -461,33 +460,17 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
             </p>
           )}
         </div>
-        <div className="flex items-center space-x-4">
-          {/* Presentation Mode Toggle */}
-          <div className="flex items-center">
-            <input
-              type="checkbox"
-              id="presentationMode"
-              checked={isPresentationMode}
-              onChange={(e) => setIsPresentationMode(e.target.checked)}
-              className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <label htmlFor="presentationMode" className="text-sm text-gray-700">
-              Presentation Mode
-            </label>
-          </div>
-          
+        <div>
           {/* File Upload */}
-          <div>
-            <label className="block">
-              <span className="sr-only">Update file</span>
-              <input
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-            </label>
-          </div>
+          <label className="block">
+            <span className="sr-only">Update file</span>
+            <input
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileUpload}
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+          </label>
         </div>
       </div>
 
@@ -497,11 +480,10 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         complianceMaturity={data.complianceMaturity}
         summary={data.summary}
         complianceElements={complianceElements}
-        isPresentationMode={isPresentationMode}
       />
 
       {/* Board-Level Executive Summary */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500 ${isPresentationMode ? 'hidden' : ''}`}>
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8 border-l-4 border-blue-500">
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">📊 Executive Summary for Board Review</h2>
         
         {/* Executive Narrative */}
@@ -537,7 +519,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
       </div>
 
       {/* Status Distribution - Bar Chart */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Status Distribution</h2>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data.statusData}>
@@ -567,7 +549,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
 
 
       {/* Timeline Analysis */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 ${isPresentationMode ? 'hidden' : ''}`}>
+      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Timeline Distribution</h2>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={data.monthlyData}>
@@ -594,7 +576,7 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
 
 
       {/* Compliance Program Maturity by Element - Expandable */}
-      <div className={`bg-white rounded-lg shadow-lg p-6 ${isPresentationMode ? 'hidden' : ''}`}>
+      <div className="bg-white rounded-lg shadow-lg p-6">
         <div 
           className="flex justify-between items-center cursor-pointer"
           onClick={() => setIsMaturityExpanded(!isMaturityExpanded)}
@@ -615,13 +597,67 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
         
         {isMaturityExpanded && (
           <div className="mt-6">
-            <GaugeDashboard
-              overallCompletion={data.summary.avgCompletion}
-              complianceMaturity={data.complianceMaturity}
-              summary={data.summary}
-              complianceElements={complianceElements}
-              isPresentationMode={false}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {data.complianceMaturity.slice(0, 7).map((element, index) => {
+                const elementKey = Object.keys(complianceElements).find(key => 
+                  complianceElements[key].name === element.element
+                ) || 'E1';
+                const elementData = complianceElements[elementKey] || complianceElements['E1'];
+                
+                return (
+                  <div key={index} className="bg-white rounded-lg p-4 shadow-sm border hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-sm text-gray-800">{elementData.code}</h4>
+                        <p className="text-xs text-gray-600 truncate" title={elementData.name}>
+                          {elementData.name.length > 25 ? elementData.name.substring(0, 25) + '...' : elementData.name}
+                        </p>
+                      </div>
+                      <div className={`text-2xl font-bold ${
+                        element.score >= 80 ? 'text-green-500' :
+                        element.score >= 60 ? 'text-yellow-500' :
+                        element.score >= 40 ? 'text-orange-500' : 'text-red-500'
+                      }`}>
+                        {element.score}%
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Activities:</span>
+                        <span className="font-medium">{element.activities}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Completion:</span>
+                        <span className="font-medium">{element.completion}%</span>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            element.score >= 80 ? 'bg-green-500' :
+                            element.score >= 60 ? 'bg-yellow-500' :
+                            element.score >= 40 ? 'bg-orange-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${element.score}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-700">
+                <strong>Maturity Scale:</strong> 
+                <span className="text-green-600 ml-2">80-100% Mature</span>
+                <span className="text-yellow-600 ml-2">60-79% Developing</span>
+                <span className="text-orange-600 ml-2">40-59% Basic</span>
+                <span className="text-red-600 ml-2">0-39% Needs Attention</span>
+              </p>
+            </div>
           </div>
         )}
       </div>

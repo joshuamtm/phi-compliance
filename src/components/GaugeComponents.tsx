@@ -223,15 +223,13 @@ interface GaugeDashboardProps {
     name: string;
     description: string;
   }>;
-  isPresentationMode?: boolean;
 }
 
 export const GaugeDashboard: React.FC<GaugeDashboardProps> = ({
   overallCompletion: _overallCompletion,
-  complianceMaturity,
+  complianceMaturity: _complianceMaturity,
   summary,
-  complianceElements,
-  isPresentationMode = false
+  complianceElements: _complianceElements
 }) => {
   // Calculate percentages for each status
   const ongoingPercentage = Math.round((summary.ongoingActivities / summary.totalActivities) * 100);
@@ -275,20 +273,8 @@ export const GaugeDashboard: React.FC<GaugeDashboardProps> = ({
     }
   ];
 
-  // Map maturity data to elements
-  const maturityGauges = complianceMaturity.map(item => {
-    const elementKey = Object.keys(complianceElements).find(key => 
-      complianceElements[key].name === item.element
-    ) || 'E1';
-    
-    return {
-      ...item,
-      element: complianceElements[elementKey] || complianceElements['E1']
-    };
-  });
-
   return (
-    <div className={`space-y-8 ${isPresentationMode ? 'p-8' : ''}`}>
+    <div className="space-y-8">
       {/* Main Completion Gauge */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 text-center shadow-lg">
         <OverallCompletionGauge 
@@ -314,33 +300,6 @@ export const GaugeDashboard: React.FC<GaugeDashboardProps> = ({
               isOngoing={gauge.isOngoing}
             />
           ))}
-        </div>
-      </div>
-
-      {/* Compliance Maturity Gauges */}
-      <div className="bg-white rounded-xl p-6 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-800 mb-6 text-center">
-          Compliance Program Maturity by Element
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {maturityGauges.slice(0, 7).map((gauge, index) => (
-            <MaturityGauge
-              key={index}
-              value={gauge.score}
-              element={gauge.element}
-              activities={gauge.activities}
-              completion={gauge.completion}
-            />
-          ))}
-        </div>
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <p className="text-sm text-blue-700">
-            <strong>Maturity Scale:</strong> 
-            <span className="text-green-600 ml-2">80-100% Mature</span>
-            <span className="text-yellow-600 ml-2">60-79% Developing</span>
-            <span className="text-orange-600 ml-2">40-59% Basic</span>
-            <span className="text-red-600 ml-2">0-39% Needs Attention</span>
-          </p>
         </div>
       </div>
     </div>
