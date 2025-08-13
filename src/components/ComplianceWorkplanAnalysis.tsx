@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { BarChart, Bar, LineChart, Line, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import * as XLSX from 'xlsx';
 import { GaugeDashboard } from './GaugeComponents';
 
@@ -516,35 +516,6 @@ const ComplianceWorkplanAnalysis: React.FC = () => {
           </div>
         </div>
         
-      </div>
-
-      {/* Status Distribution - Bar Chart */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Activity Status Distribution</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data.statusData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis />
-            <Tooltip formatter={(value: number) => `${value} activities`} />
-            <Bar dataKey="value" name="Activities">
-              {data.statusData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="mt-4 grid grid-cols-4 gap-4">
-          {data.statusData.map((status, index) => (
-            <div key={index} className="flex items-center">
-              <span 
-                className="w-3 h-3 rounded-full mr-2"
-                style={{ backgroundColor: status.color }}
-              ></span>
-              <span className="text-sm text-gray-700">{status.name}: {status.value} ({status.percentage}%)</span>
-            </div>
-          ))}
-        </div>
       </div>
 
 
